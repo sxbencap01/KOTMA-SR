@@ -1,0 +1,10 @@
+profile,figure,role,claim,source_data,svg_exists,pdf_exists,tiff_exists,png_exists
+kbs,Fig1_Graphical_Abstract,opening,The complete innovation and measured effect are visible in one opening figure.,Fig1_Graphical_Abstract_SourceData.csv,1,1,1,1
+kbs,Fig2_Knowledge_Architecture,method,"Explicit process knowledge, structural memory and selective reasoning form one auditable architecture.",Fig2_Knowledge_Architecture_SourceData.csv,1,1,1,1
+kbs,Fig3_Process_Knowledge,innovation,Pressure is actively recommended while velocity remains empirically anchored.,Fig3_Process_Knowledge_SourceData.csv,1,1,1,1
+kbs,Fig4_Structural_Memory,innovation,PCB graph structure provides conditional evidence beyond tabular recall.,Fig4_Structural_Memory_SourceData.csv,1,1,1,1
+kbs,Fig5_Sparse_Tail_Gate,innovation,Structural reasoning modifies CBR only for fold-local sparse tails.,Fig5_Sparse_Tail_Gate_SourceData.csv,1,1,1,1
+kbs,Fig6_Validation_System,validation_design,"Nested LOBO separates tuning, calibration and held-out evaluation.",Fig6_Validation_System_SourceData.csv,1,1,1,1
+kbs,Fig7_Primary_Results,validation,KOTMA-SR improves retrospective pressure recovery against CBR.,Fig7_Primary_Results_SourceData.csv,1,1,1,1
+kbs,Fig8_Trust_Calibration,trust,"Risk-coverage, interval calibration and review triggers are disclosed.",Fig8_Trust_Calibration_SourceData.csv,1,1,1,1
+kbs,Fig9_Evidence_Matrix,robustness,"Ablation, perturbation, small-sample and negative-control evidence define the method boundary.",Fig9_Evidence_Matrix_SourceData.csv,1,1,1,1

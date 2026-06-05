@@ -1,0 +1,12 @@
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+seaborn
+POT
+xgboost
+catboost
+lightgbm
+torch
+torch-geometric
