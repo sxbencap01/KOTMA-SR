@@ -8,6 +8,15 @@ kbs,Fig6_Validation_System,5,1,1,pass
 kbs,Fig7_Primary_Results,174,1,1,pass
 kbs,Fig8_Trust_Calibration,57,1,1,pass
 kbs,Fig9_Evidence_Matrix,1190,1,1,pass
+jms,Fig1_Graphical_Abstract,4,1,1,pass
+jms,Fig2_Knowledge_Architecture,9,1,1,pass
+jms,Fig3_Process_Knowledge,34,1,1,pass
+jms,Fig4_Structural_Memory,640,1,1,pass
+jms,Fig5_Sparse_Tail_Gate,68,1,1,pass
+jms,Fig6_Validation_System,5,1,1,pass
+jms,Fig7_Primary_Results,174,1,1,pass
+jms,Fig8_Trust_Calibration,57,1,1,pass
+jms,Fig9_Evidence_Matrix,1190,1,1,pass
 supplementary,FigS1_Grouped_Benchmark,39,1,1,pass
 supplementary,FigS2_Protocol_Sensitivity,10,1,1,pass
 supplementary,FigS3_Sparse_Tail_Cases,34,1,1,pass

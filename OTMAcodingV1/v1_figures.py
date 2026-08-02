@@ -30,6 +30,39 @@ COLORS = {
     "muted": "#52616B",
 }
 
+METHOD_LABELS = {
+    "KOTMA-SR": "KOTMA-SR",
+    "KOTMA-SR (unconstrained)": "KOTMA-SR\nunconstr.",
+    "Descriptor + FGW": "Descriptor\n+ FGW",
+    "Weighted kNN-CBR": "Weighted\nkNN-CBR",
+    "Local median CBR": "Local\nmedian CBR",
+    "Local mode CBR": "Local\nmode CBR",
+    "Training median": "Training\nmedian",
+    "Training mode": "Training\nmode",
+    "Wasserstein-only": "Wasserstein\nonly",
+    "FGW-only": "FGW\nonly",
+    "GW-only": "GW\nonly",
+    "Gaussian Process": "Gaussian\nprocess",
+    "Random Forest": "Random\nforest",
+    "ExtraTrees": "ExtraTrees",
+    "CatBoost": "CatBoost",
+    "Ridge": "Ridge",
+    "RBF-SVR": "RBF-SVR",
+    "Elastic Net": "Elastic\nNet",
+    "XGBoost": "XGBoost",
+    "LightGBM": "LightGBM",
+    "Top-1 CBR": "Top-1\nCBR",
+    "CBR": "CBR",
+    "Sparse-tail correction": "Sparse-tail\ncorrection",
+    "Descriptor CBR": "Descriptor\nCBR",
+    "FGW only": "FGW\nonly",
+    "KOTMA-SR": "KOTMA-SR",
+}
+
+
+def _label_methods(values) -> list[str]:
+    return [METHOD_LABELS.get(str(v), str(v).replace(" ", "\n") if len(str(v)) > 14 else str(v)) for v in values]
+
 
 def set_publication_style() -> None:
     sns.set_theme(style="white", context="paper")
@@ -39,27 +72,56 @@ def set_publication_style() -> None:
             "font.sans-serif": ["Arial", "DejaVu Sans", "Liberation Sans", "sans-serif"],
             "svg.fonttype": "none",
             "pdf.fonttype": 42,
-            "font.size": 6.4,
-            "axes.labelsize": 6.4,
-            "axes.titlesize": 7.2,
-            "xtick.labelsize": 5.6,
-            "ytick.labelsize": 5.6,
-            "legend.fontsize": 5.5,
+            "ps.fonttype": 42,
+            "font.size": 7.2,
+            "axes.labelsize": 7.0,
+            "axes.titlesize": 7.8,
+            "xtick.labelsize": 6.2,
+            "ytick.labelsize": 6.2,
+            "legend.fontsize": 6.0,
             "legend.frameon": False,
             "axes.spines.top": False,
             "axes.spines.right": False,
-            "figure.dpi": 130,
+            "axes.linewidth": 0.65,
+            "xtick.major.width": 0.55,
+            "ytick.major.width": 0.55,
+            "xtick.major.size": 2.6,
+            "ytick.major.size": 2.6,
+            "grid.linewidth": 0.35,
+            "grid.alpha": 0.32,
+            "figure.dpi": 180,
+            "figure.facecolor": "white",
+            "savefig.facecolor": "white",
+            "savefig.edgecolor": "white",
         }
     )
+
+
+def _polish_figure(fig) -> None:
+    """Apply a final lightweight publication pass without changing the data."""
+    for ax in fig.axes:
+        if not ax.axison:
+            continue
+        ax.tick_params(colors=COLORS["ink"], labelcolor=COLORS["ink"], pad=1.5)
+        ax.xaxis.label.set_color(COLORS["ink"])
+        ax.yaxis.label.set_color(COLORS["ink"])
+        ax.title.set_color(COLORS["ink"])
+        if ax.get_visible() and len(ax.images) == 0:
+            ax.grid(axis="y", color=COLORS["neutral_mid"], alpha=0.25, lw=0.35)
+            ax.set_axisbelow(True)
+        for spine in ax.spines.values():
+            spine.set_color("#6E7881")
+            spine.set_linewidth(0.55)
 
 
 def save_pub(fig, base: Path, source: pd.DataFrame) -> None:
     base.parent.mkdir(parents=True, exist_ok=True)
     source.to_csv(f"{base}_SourceData.csv", index=False)
-    fig.savefig(f"{base}.svg", bbox_inches="tight", pad_inches=0.04)
-    fig.savefig(f"{base}.pdf", bbox_inches="tight", pad_inches=0.04)
-    fig.savefig(f"{base}.png", dpi=300, bbox_inches="tight", pad_inches=0.04)
-    fig.savefig(f"{base}.tiff", dpi=600, bbox_inches="tight", pad_inches=0.04)
+    _polish_figure(fig)
+    fig.savefig(f"{base}.svg", bbox_inches="tight", pad_inches=0.045)
+    fig.savefig(f"{base}.pdf", bbox_inches="tight", pad_inches=0.045)
+    fig.savefig(f"{base}.png", dpi=600, bbox_inches="tight", pad_inches=0.045)
+    fig.savefig(f"{base}.tiff", dpi=600, bbox_inches="tight", pad_inches=0.045, pil_kwargs={"compression": "tiff_lzw"})
     plt.close(fig)
 
 
@@ -166,8 +228,8 @@ def plot_fig1_graphical_abstract(profile: str, summary: pd.DataFrame, traces: pd
     metric_rows = [
         ("Pressure MAE", cbr_mae, safe_mae, f"{100 * (cbr_mae - safe_mae) / cbr_mae:.1f}% lower"),
         ("Median error", cbr_median, safe_median, f"{100 * (cbr_median - safe_median) / cbr_median:.1f}% lower"),
-        ("Within +/-0.2", cbr_02, safe_02, f"{safe_02 - cbr_02:+.1f} pp"),
-        ("Within +/-0.4", cbr_04, safe_04, f"{safe_04 - cbr_04:+.1f} pp"),
+        ("Within ±0.2", cbr_02, safe_02, f"{safe_02 - cbr_02:+.1f} pp"),
+        ("Within ±0.4", cbr_04, safe_04, f"{safe_04 - cbr_04:+.1f} pp"),
     ]
     for idx, (label, baseline, ours, delta) in enumerate(metric_rows):
         x = 0.015 + idx * 0.247
@@ -422,17 +484,20 @@ def plot_fig7_primary_results(results: pd.DataFrame, paired: pd.DataFrame, outpu
     axes = [fig.add_subplot(gs[0, i]) for i in range(4)]
     means = results.groupby("method", as_index=False)["pressure_abs_error_raw"].mean().sort_values("pressure_abs_error_raw")
     _panel(axes[0], "a", "Pressure recovery MAE")
-    axes[0].barh(means["method"], means["pressure_abs_error_raw"], color=[COLORS.get(m, COLORS["neutral_mid"]) for m in means["method"]])
+    axes[0].barh(_label_methods(means["method"]), means["pressure_abs_error_raw"], color=[COLORS.get(m, COLORS["neutral_mid"]) for m in means["method"]])
     axes[0].invert_yaxis()
     axes[0].set_xlabel("MAE")
     rates = results.groupby("method", as_index=False)[["within_0_2_raw", "within_0_4_raw"]].mean()
     _panel(axes[1], "b", "Engineering-window recovery")
-    x = np.arange(len(rates))
-    axes[1].bar(x - 0.16, 100 * rates["within_0_2_raw"], width=0.32, color=COLORS["red"], label="+/-0.2")
-    axes[1].bar(x + 0.16, 100 * rates["within_0_4_raw"], width=0.32, color=COLORS["blue"], label="+/-0.4")
-    axes[1].set_xticks(x, rates["method"], rotation=50, ha="right")
-    axes[1].set_ylabel("PCB sides (%)")
-    axes[1].legend(loc="lower left")
+    rates = rates.set_index("method").loc[means["method"]].reset_index()
+    y = np.arange(len(rates))
+    axes[1].barh(y - 0.17, 100 * rates["within_0_2_raw"], height=0.30, color=COLORS["red"], label="±0.2")
+    axes[1].barh(y + 0.17, 100 * rates["within_0_4_raw"], height=0.30, color=COLORS["blue"], label="±0.4")
+    axes[1].set_yticks(y, _label_methods(rates["method"]))
+    axes[1].invert_yaxis()
+    axes[1].set_xlabel("PCB sides (%)")
+    axes[1].set_xlim(0, 100)
+    axes[1].legend(loc="lower right", ncol=1, handlelength=1.2, borderaxespad=0.2)
     wide = results.pivot(index="board_id", columns="method", values="pressure_abs_error_raw")
     _panel(axes[2], "c", "Paired difference vs CBR")
     delta = (wide["CBR"] - wide["KOTMA-SR"]).sort_values()
@@ -481,7 +546,8 @@ def plot_fig8_trust(selective: pd.DataFrame, intervals: pd.DataFrame, traces: pd
     counts = reasons[reasons.ne("")].value_counts()
     if counts.empty:
         counts = pd.Series({"none": 0})
-    axes[3].barh(counts.index, counts.values, color=COLORS["red_mid"])
+    labels = [str(item).replace("_", " ") for item in counts.index]
+    axes[3].barh(labels, counts.values, color=COLORS["red_mid"])
     axes[3].set_xlabel("PCB sides")
     fig.tight_layout(w_pad=1.25)
     source = pd.concat([selective.assign(panel="risk"), intervals.assign(panel="interval"), traces.assign(panel="trace")], ignore_index=True, sort=False)
@@ -493,7 +559,7 @@ def plot_fig9_evidence_matrix(ablation: pd.DataFrame, robustness: pd.DataFrame, 
     fig, axes = plt.subplots(1, 4, figsize=(7.2, 2.65))
     _panel(axes[0], "a", "Clean ablation")
     abl = ablation.groupby("method", as_index=False)["pressure_abs_error_raw"].mean().sort_values("pressure_abs_error_raw")
-    axes[0].barh(abl["method"], abl["pressure_abs_error_raw"], color=[COLORS["red"] if m == "Sparse-tail correction" else COLORS["blue_mid"] for m in abl["method"]])
+    axes[0].barh(_label_methods(abl["method"]), abl["pressure_abs_error_raw"], color=[COLORS["red"] if m == "Sparse-tail correction" else COLORS["blue_mid"] for m in abl["method"]])
     axes[0].invert_yaxis()
     axes[0].set_xlabel("MAE")
     _panel(axes[1], "b", "Geometry perturbation")
@@ -510,7 +576,7 @@ def plot_fig9_evidence_matrix(ablation: pd.DataFrame, robustness: pd.DataFrame, 
     axes[2].legend()
     _panel(axes[3], "d", "Negative controls")
     neg = controls.groupby("method", as_index=False)["pressure_abs_error_raw"].mean().sort_values("pressure_abs_error_raw")
-    axes[3].barh(neg["method"], neg["pressure_abs_error_raw"], color=[COLORS["red"] if m == "KOTMA-SR" else COLORS["blue_mid"] for m in neg["method"]])
+    axes[3].barh(_label_methods(neg["method"]), neg["pressure_abs_error_raw"], color=[COLORS["red"] if m == "KOTMA-SR" else COLORS["blue_mid"] for m in neg["method"]])
     axes[3].invert_yaxis()
     axes[3].set_xlabel("MAE")
     fig.tight_layout(w_pad=1.1)

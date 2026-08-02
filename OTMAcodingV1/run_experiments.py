@@ -13,9 +13,11 @@ import numpy as np
 import pandas as pd
 
 try:
-    from .data_loader import load_print_spi, write_data_inventory
+    from .data_loader import ProcessRanges, load_print_spi, write_data_inventory
     from .db_audit import audit_database, audit_database_fast
     from .otma_engine import OTMAConfig, OTMAEngine
+    from .trusted_recommender import TrustedConfig, board_descriptor
+    from .validation_protocols import physical_board_id
     from .v1_evaluation import (
         evaluate_clean_ablations,
         evaluate_explanations_and_robustness,
@@ -42,9 +44,11 @@ try:
     from .prospective_eval import evaluate_engineer_review_csv, evaluate_prospective_csv, write_collection_templates
     from .supplementary_figures import generate_supplementary_figures
 except ImportError:
-    from data_loader import load_print_spi, write_data_inventory
+    from data_loader import ProcessRanges, load_print_spi, write_data_inventory
     from db_audit import audit_database, audit_database_fast
     from otma_engine import OTMAConfig, OTMAEngine
+    from trusted_recommender import TrustedConfig, board_descriptor
+    from validation_protocols import physical_board_id
     from v1_evaluation import evaluate_clean_ablations, evaluate_explanations_and_robustness, evaluate_negative_controls, evaluate_sample_efficiency, evaluate_strict_nested_lobo, selective_risk_curve, summarize_interval_calibration, write_action_case_table
     from v1_figures import generate_profile_figures
     from baseline_suite import evaluate_baseline_suite
@@ -191,7 +195,7 @@ def _readiness_audit(artifacts: dict[str, pd.DataFrame], smoke: bool) -> pd.Data
         {
             "criterion": "engineering_usability",
             "status": "pass" if float(main.get("accepted_within_0_4_rate", np.nan)) >= 0.85 else "risk",
-            "evidence": f"accepted coverage={main.get('accepted_coverage', np.nan):.3g}; accepted within +/-0.4={main.get('accepted_within_0_4_rate', np.nan):.3g}.",
+            "evidence": f"accepted coverage={main.get('accepted_coverage', np.nan):.3g}; accepted within ±0.4={main.get('accepted_within_0_4_rate', np.nan):.3g}.",
             "claim_action": "Claim trustworthy selective recommendation only if accepted coverage and usability remain adequate.",
         },
         {
@@ -214,7 +218,7 @@ def _readiness_audit(artifacts: dict[str, pd.DataFrame], smoke: bool) -> pd.Data
         {
             "criterion": "universal_metric_dominance",
             "status": "prohibited" if better_window_methods else "candidate",
-            "evidence": f"Methods with higher within +/-0.4 recovery than KOTMA-SR: {better_window_methods or 'none'}.",
+            "evidence": f"Methods with higher within ±0.4 recovery than KOTMA-SR: {better_window_methods or 'none'}.",
             "claim_action": "Do not claim superiority on every metric; state the primary MAE endpoint and trade-offs explicitly.",
         },
         {
@@ -237,6 +241,257 @@ def _readiness_audit(artifacts: dict[str, pd.DataFrame], smoke: bool) -> pd.Data
         },
     ]
     return pd.DataFrame(rows)
+
+
+def _write_dataset_scope_summary(records, shared: Path) -> pd.DataFrame:
+    """Export an AEI-facing data-scope summary without exposing raw pad coordinates."""
+
+    cases = {}
+    for record in records:
+        cases.setdefault(str(record.board_id), record)
+    unique_cases = [cases[key] for key in sorted(cases)]
+    pressure = np.asarray([case.press_raw for case in unique_cases], dtype=float)
+    velocity = np.asarray([case.velocity_raw for case in unique_cases], dtype=float)
+    pad_counts = np.asarray([len(case.comps_raw) for case in unique_cases], dtype=float)
+    dims = np.asarray([case.board_dim for case in unique_cases], dtype=float)
+    physical_ids = [physical_board_id(case.board_id) for case in unique_cases]
+    sides = pd.Series([str(case.board_id).rsplit("-", 1)[-1] if "-" in str(case.board_id) else "unknown" for case in unique_cases])
+    ranges = ProcessRanges()
+
+    def stats(prefix: str, values: np.ndarray) -> dict:
+        return {
+            f"{prefix}_min": float(np.min(values)) if len(values) else np.nan,
+            f"{prefix}_median": float(np.median(values)) if len(values) else np.nan,
+            f"{prefix}_mean": float(np.mean(values)) if len(values) else np.nan,
+            f"{prefix}_max": float(np.max(values)) if len(values) else np.nan,
+        }
+
+    row = {
+        "n_pcb_sides": int(len(unique_cases)),
+        "n_physical_boards": int(len(set(physical_ids))),
+        "n_a_sides": int(sides.str.upper().eq("A").sum()),
+        "n_b_sides": int(sides.str.upper().eq("B").sum()),
+        "n_unknown_side_labels": int((~sides.str.upper().isin(["A", "B"])).sum()),
+        "pressure_feasible_low": float(ranges.pressure[0]),
+        "pressure_feasible_high": float(ranges.pressure[1]),
+        "velocity_feasible_low": float(ranges.velocity[0]),
+        "velocity_feasible_high": float(ranges.velocity[1]),
+        **stats("pressure_raw", pressure),
+        **stats("velocity_raw", velocity),
+        **stats("pad_count", pad_counts),
+        **stats("board_x_span", dims[:, 0] if len(dims) else np.asarray([])),
+        **stats("board_y_span", dims[:, 1] if len(dims) else np.asarray([])),
+        **stats("board_thickness_or_layer_proxy", dims[:, 2] if len(dims) else np.asarray([])),
+    }
+    frame = pd.DataFrame([row])
+    frame.to_csv(shared / "dataset_scope_summary.csv", index=False)
+    return frame
+
+
+def _write_method_rule_table(shared: Path) -> pd.DataFrame:
+    """Export a concise method-rule table for manuscript reproducibility."""
+
+    default = TrustedConfig()
+    primary_grid = pd.DataFrame(
+        [
+            {
+                "top_k_candidates": "5;8",
+                "descriptor_weight_candidates": "0.5;0.75",
+                "min_supported_pressure_cases_candidates": "3",
+                "max_tail_adjustment_raw_candidates": "0.2;0.4;0.5",
+                "selection_rule": "minimum inner grouped-validation MAE; ties prefer smaller cap, lower support threshold, smaller top_k, lower descriptor weight",
+            }
+        ]
+    )
+    primary_grid.to_csv(shared / "kotma_sr_hyperparameter_grid.csv", index=False)
+    rows = [
+        {
+            "module": "Descriptor case memory",
+            "rule_or_formula": "x_i contains log pad count, log board dimensions, pad-area mean/std, aperture-ratio mean/std, aspect-ratio mean/std, and x/y pad spans.",
+            "fold_local_or_fixed": "computed for each training/test side; scaler is training-fold-only",
+            "main_parameters": "12 descriptor features",
+            "implementation_source": "trusted_recommender.board_descriptor",
+        },
+        {
+            "module": "Descriptor retrieval",
+            "rule_or_formula": "Euclidean distance after training-fold z-score standardization; nearest descriptor case supplies the CBR safeguard.",
+            "fold_local_or_fixed": "training-fold-only center and scale",
+            "main_parameters": f"top_k selected from 5 or 8; default class value {default.top_k}",
+            "implementation_source": "TrustedRecommender._descriptor_distances, retrieve",
+        },
+        {
+            "module": "Super-node structural memory",
+            "rule_or_formula": "MiniBatchKMeans over normalized x/y position and pad area; super-node position and attributes are area-weighted aggregates.",
+            "fold_local_or_fixed": "fixed random seed 2026; base_k supplied by run argument",
+            "main_parameters": "base_k default run argument 80; robustness also evaluates 40, 60, 80, 100",
+            "implementation_source": "OTMAEngine.coarsen_pcb",
+        },
+        {
+            "module": "FGW structural matching",
+            "rule_or_formula": "Entropic fused Gromov-Wasserstein distance over normalized feature cost and normalized intra-object distance matrices.",
+            "fold_local_or_fixed": "computed only between target and training cases",
+            "main_parameters": "ot_reg=0.05; alpha is adaptive when not overridden",
+            "implementation_source": "OTMAEngine.compute_fgw_distance",
+        },
+        {
+            "module": "Sparse-tail support gate",
+            "rule_or_formula": "Trigger structural correction when descriptor CBR pressure has support below threshold or falls outside the fold-local supported pressure range.",
+            "fold_local_or_fixed": "threshold selected inside training folds",
+            "main_parameters": "min_supported_pressure_cases=3",
+            "implementation_source": "TrustedRecommender._descriptor_cbr_pressure, _apply_sparse_tail_shrink",
+        },
+        {
+            "module": "Bounded structural correction",
+            "rule_or_formula": "p = round_to_0.1(p_CBR + clip(p_struct - p_CBR, -cap, cap)), then clip to feasible pressure range.",
+            "fold_local_or_fixed": "cap selected inside training folds",
+            "main_parameters": "cap selected from 0.2, 0.4, 0.5; feasible pressure range 5.0-8.0",
+            "implementation_source": "TrustedRecommender._apply_sparse_tail_shrink",
+        },
+        {
+            "module": "Empirical uncertainty intervals",
+            "rule_or_formula": "p_hat ± inner-fold absolute residual quantiles, clipped to feasible pressure range.",
+            "fold_local_or_fixed": "calibration residuals from training physical boards only",
+            "main_parameters": "nominal quantiles 0.80 and 0.90",
+            "implementation_source": "calibrate_grouped_profile, TrustedRecommender.recommend",
+        },
+        {
+            "module": "Review triggers",
+            "rule_or_formula": "Manual review if low effective neighbors, OOD distance, retrieval-prior disagreement, low confidence, or wide interval warning.",
+            "fold_local_or_fixed": "distance and confidence thresholds calibrated inside training folds",
+            "main_parameters": f"min_effective_neighbors={default.min_effective_neighbors}; interval_review_width_raw={default.interval_review_width_raw}",
+            "implementation_source": "TrustedRecommender.recommend",
+        },
+    ]
+    frame = pd.DataFrame(rows)
+    frame.to_csv(shared / "method_rule_table.csv", index=False)
+    return frame
+
+
+def _write_example_recommendation_card(artifacts: dict[str, pd.DataFrame], shared: Path) -> pd.DataFrame:
+    traces = artifacts["traces"].copy()
+    results = artifacts["results"].copy()
+    safe_results = results[results["method"].eq("KOTMA-SR")][["board_id", "real_pressure_raw", "recommended_pressure_raw", "pressure_abs_error_raw", "within_0_4_raw"]]
+    traces = traces.merge(safe_results, on=["board_id", "recommended_pressure_raw"], how="left")
+    if traces.empty:
+        frame = pd.DataFrame()
+        frame.to_csv(shared / "example_recommendation_card.csv", index=False)
+        return frame
+    sparse = traces[traces["safety_action"].eq("bounded_structural_tail_correction")]
+    candidate = sparse.sort_values(["manual_review", "pressure_abs_error_raw"], ascending=[False, True]).head(1)
+    if candidate.empty:
+        candidate = traces.sort_values(["manual_review", "pressure_abs_error_raw"], ascending=[False, True]).head(1)
+    row = candidate.iloc[0]
+    neighbor_ids = str(row.get("neighbor_ids", "")).split(";")
+    neighbor_weights = str(row.get("neighbor_weights", "")).split(";")
+    top_neighbors = []
+    for idx, board_id in enumerate(neighbor_ids[:3], start=1):
+        weight = neighbor_weights[idx - 1] if idx - 1 < len(neighbor_weights) else ""
+        top_neighbors.append(f"{idx}:{board_id}({weight})")
+    card = pd.DataFrame(
+        [
+            {
+                "target_pcb_side": row.get("board_id"),
+                "historical_pressure_raw": row.get("real_pressure_raw"),
+                "recommended_pressure_raw": row.get("recommended_pressure_raw"),
+                "empirical_velocity_raw": row.get("recommended_velocity_raw"),
+                "descriptor_cbr_pressure_raw": row.get("descriptor_cbr_pressure_raw"),
+                "structural_pressure_raw": row.get("structural_pressure_raw"),
+                "safety_action": row.get("safety_action"),
+                "top_3_neighbors_with_weights": "; ".join(top_neighbors),
+                "interval_80_raw": f"[{row.get('interval_80_low_raw')}, {row.get('interval_80_high_raw')}]",
+                "interval_90_raw": f"[{row.get('interval_90_low_raw')}, {row.get('interval_90_high_raw')}]",
+                "manual_review": row.get("manual_review"),
+                "review_reasons": row.get("review_reasons"),
+                "confidence": row.get("confidence"),
+                "engineering_interpretation": "Use as an engineer-reviewed first-article starting pressure; not an autonomous quality optimum.",
+            }
+        ]
+    )
+    card.to_csv(shared / "example_recommendation_card.csv", index=False)
+    return card
+
+
+def _write_protocol_mapping_audit(shared: Path) -> pd.DataFrame:
+    rows = [
+        {
+            "manuscript_element": "Table 3 / Figure 10",
+            "source_files": "pcb_group_lobo_primary_statistics.csv; pcb_group_lobo_outer_results.csv; pcb_group_lobo_paired_statistics.csv",
+            "protocol_family": "primary grouped nested validation",
+            "interpretation": "Deployable retrospective evaluation with physical-board grouped outer holdout, inner grouped model selection, and training-fold calibration.",
+            "directly_interchangeable_with_primary": "yes",
+        },
+        {
+            "manuscript_element": "Table 4 / Figure 12 ablation",
+            "source_files": "clean_ablation_results.csv",
+            "protocol_family": "mechanism-analysis ablation",
+            "interpretation": "Controlled mechanism isolation for descriptor CBR, FGW-only, descriptor+FGW, and sparse-tail correction; not a replacement for the fully nested primary estimate.",
+            "directly_interchangeable_with_primary": "no",
+        },
+        {
+            "manuscript_element": "Sparse-tail mechanism strata",
+            "source_files": "mechanism_case_table.csv; mechanism_strata_summary.csv",
+            "protocol_family": "primary traces stratified by action",
+            "interpretation": "Explains where primary KOTMA-SR preserves CBR and where bounded structural correction is activated.",
+            "directly_interchangeable_with_primary": "diagnostic_from_primary_traces",
+        },
+        {
+            "manuscript_element": "Trust and interval calibration",
+            "source_files": "interval_calibration_summary.csv; conditional_interval_calibration.csv; interval_comparator_summary.csv; selective_risk_curve.csv",
+            "protocol_family": "training-fold residual calibration and selective review diagnostics",
+            "interpretation": "Evaluates empirical interval behavior and review-trigger behavior; intervals are decision aids, not certified safety bounds.",
+            "directly_interchangeable_with_primary": "diagnostic",
+        },
+        {
+            "manuscript_element": "Negative controls",
+            "source_files": "negative_control_results.csv",
+            "protocol_family": "sanity-control suite",
+            "interpretation": "Rules out trivial historical-pressure and pad-count explanations; not the primary deployable protocol.",
+            "directly_interchangeable_with_primary": "no",
+        },
+        {
+            "manuscript_element": "Robustness and sample efficiency",
+            "source_files": "robustness_suite.csv; perturbation_robustness.csv; grouped_sample_efficiency.csv",
+            "protocol_family": "sensitivity diagnostics",
+            "interpretation": "Tests stability under perturbations and smaller historical memories; supports boundary claims.",
+            "directly_interchangeable_with_primary": "diagnostic",
+        },
+    ]
+    frame = pd.DataFrame(rows)
+    frame.to_csv(shared / "protocol_mapping_audit.csv", index=False)
+    return frame
+
+
+def _write_aei_support_report(output: Path, artifacts: dict[str, pd.DataFrame], support_tables: dict[str, pd.DataFrame]) -> None:
+    summary = artifacts["summary"].set_index("method")
+    safe = summary.loc["KOTMA-SR"]
+    lines = [
+        "# AEI support audit",
+        "",
+        "This report checks whether the result package includes the engineering-informatics support material requested for AEI-style review.",
+        "",
+        "## Added support tables",
+        "",
+    ]
+    for name, frame in support_tables.items():
+        lines.append(f"- `{name}`: {len(frame)} row(s).")
+    lines.extend(
+        [
+            "",
+            "## Primary claim boundary",
+            "",
+            f"- Primary MAE: {safe['pressure_mae_raw']:.4f}.",
+            f"- Accepted coverage: {safe['accepted_coverage']:.3f}.",
+            f"- Accepted within ±0.4: {safe['accepted_within_0_4_rate']:.3f}.",
+            "- The package supports a retrospective knowledge-intensive engineering decision-support claim.",
+            "- It does not support autonomous process control, counterfactual quality optimization, or external deployment validation.",
+            "",
+            "## AEI readiness note",
+            "",
+            "The code now exports data-scope, method-rule, recommendation-card, and protocol-mapping evidence. "
+            "These outputs are intended to make the methodology reproducible and to prevent confusion between primary nested validation, mechanism ablation, and diagnostic suites.",
+        ]
+    )
+    (output / "AEI_SUPPORT_AUDIT.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def _qa_figures(profile: str, figure_dir: Path) -> pd.DataFrame:
@@ -282,8 +537,8 @@ def _write_readiness_report(output: Path, artifacts: dict[str, pd.DataFrame], re
         f"- Pressure MAE: KOTMA-SR {safe['pressure_mae_raw']:.4f} versus CBR {cbr['pressure_mae_raw']:.4f}.",
         f"- Best non-KOTMA-SR grouped benchmark: {best_baseline.get('method', 'unavailable')} with MAE {best_baseline.get('pressure_mae_raw', np.nan):.4f}.",
         f"- Relative MAE reduction: {100 * (cbr['pressure_mae_raw'] - safe['pressure_mae_raw']) / cbr['pressure_mae_raw']:.1f}%.",
-        f"- Within +/-0.2: KOTMA-SR {100 * safe['within_0_2_raw_rate']:.1f}% versus CBR {100 * cbr['within_0_2_raw_rate']:.1f}%.",
-        f"- Within +/-0.4: KOTMA-SR {100 * safe['within_0_4_raw_rate']:.1f}% versus CBR {100 * cbr['within_0_4_raw_rate']:.1f}%.",
+        f"- Within ±0.2: KOTMA-SR {100 * safe['within_0_2_raw_rate']:.1f}% versus CBR {100 * cbr['within_0_2_raw_rate']:.1f}%.",
+        f"- Within ±0.4: KOTMA-SR {100 * safe['within_0_4_raw_rate']:.1f}% versus CBR {100 * cbr['within_0_4_raw_rate']:.1f}%.",
         f"- Side-level paired Wilcoxon p: {paired['p_wilcoxon']:.4g}. Physical-board cluster-bootstrap CI for mean MAE advantage: "
         f"[{paired.get('cluster_bootstrap_ci_low', paired['bootstrap_ci_low']):.4f}, {paired.get('cluster_bootstrap_ci_high', paired['bootstrap_ci_high']):.4f}].",
         "",
@@ -292,7 +547,7 @@ def _write_readiness_report(output: Path, artifacts: dict[str, pd.DataFrame], re
         f"- Descriptor CBR safeguard: {int(actions.get('descriptor_cbr_safeguard', 0))} PCB sides.",
         f"- Bounded structural tail correction: {int(actions.get('bounded_structural_tail_correction', 0))} PCB sides.",
         f"- Accepted coverage: {100 * safe['accepted_coverage']:.1f}%.",
-        f"- Accepted within +/-0.4: {100 * safe['accepted_within_0_4_rate']:.1f}%.",
+        f"- Accepted within ±0.4: {100 * safe['accepted_within_0_4_rate']:.1f}%.",
         "",
         "## Reviewer boundary",
         "",
@@ -432,6 +687,13 @@ def main():
     else:
         artifacts["exploratory_gnn"] = pd.DataFrame([{"status": "skipped_not_requested"}])
         artifacts["exploratory_gnn"].to_csv(shared / "exploratory_gnn_results.csv", index=False)
+    support_tables = {
+        "dataset_scope_summary.csv": _write_dataset_scope_summary(records, shared),
+        "method_rule_table.csv": _write_method_rule_table(shared),
+        "example_recommendation_card.csv": _write_example_recommendation_card(artifacts, shared),
+        "protocol_mapping_audit.csv": _write_protocol_mapping_audit(shared),
+    }
+    _write_aei_support_report(output, artifacts, support_tables)
     write_collection_templates(shared)
     if args.prospective_csv:
         evaluate_prospective_csv(args.prospective_csv, shared)

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from .v1_figures import COLORS, save_pub, set_publication_style
+from .v1_figures import COLORS, _label_methods, save_pub, set_publication_style
 
 
 def _title(ax, label: str, text: str) -> None:
@@ -23,7 +23,7 @@ def plot_s1_benchmark(summary: pd.DataFrame, paired: pd.DataFrame, output_dir: P
     ordered = summary.sort_values("pressure_mae_raw", ascending=True)
     colors = [COLORS["red"] if method == "KOTMA-SR" else COLORS["blue_mid"] for method in ordered["method"]]
     _title(axes[0], "a", "Physical-board grouped benchmark")
-    axes[0].barh(ordered["method"], ordered["pressure_mae_raw"], color=colors)
+    axes[0].barh(_label_methods(ordered["method"]), ordered["pressure_mae_raw"], color=colors)
     axes[0].invert_yaxis()
     axes[0].set_xlabel("Pressure MAE")
     forest = paired.sort_values("mean_advantage_raw")
@@ -42,7 +42,7 @@ def plot_s1_benchmark(summary: pd.DataFrame, paired: pd.DataFrame, output_dir: P
         ecolor=COLORS["red_mid"],
         ms=3,
     )
-    axes[1].set_yticks(y, forest["comparator"])
+    axes[1].set_yticks(y, _label_methods(forest["comparator"]))
     axes[1].set_xlabel("Comparator MAE - KOTMA-SR MAE")
     fig.tight_layout(w_pad=1.2)
     source = pd.concat([summary.assign(panel="summary"), paired.assign(panel="paired")], ignore_index=True, sort=False)
@@ -55,6 +55,7 @@ def plot_s2_protocols(protocol_summary: pd.DataFrame, output_dir: Path) -> None:
     _title(ax, "a", "Validation protocol sensitivity")
     pivot = protocol_summary.pivot(index="method", columns="protocol", values="pressure_mae_raw")
     pivot.plot(kind="barh", ax=ax, color=[COLORS["blue"], COLORS["red_mid"]])
+    ax.set_yticklabels(_label_methods(pivot.index))
     ax.set_xlabel("Pressure MAE")
     ax.set_ylabel("")
     ax.legend(title="Protocol")
@@ -86,10 +87,20 @@ def plot_s4_gate(gate: pd.DataFrame, output_dir: Path) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(6.4, 2.7))
     _title(axes[0], "a", "Safety-gate MAE")
     matrix = gate.pivot(index="min_supported_pressure_cases", columns="max_tail_adjustment_raw", values="pressure_mae_raw")
-    sns.heatmap(matrix, cmap=sns.light_palette(COLORS["red"], as_cmap=True), annot=True, fmt=".3f", ax=axes[0], cbar_kws={"label": "MAE"})
+    sns.heatmap(
+        matrix,
+        cmap=sns.light_palette(COLORS["red"], as_cmap=True),
+        annot=True,
+        fmt=".3f",
+        annot_kws={"fontsize": 6.0},
+        linewidths=0.35,
+        linecolor="white",
+        ax=axes[0],
+        cbar_kws={"label": "MAE"},
+    )
     _title(axes[1], "b", "Gate Pareto map")
     axes[1].scatter(gate["within_0_4_raw_rate"], gate["pressure_mae_raw"], c=np.where(gate["pareto_front"], COLORS["red"], COLORS["blue_mid"]), s=30)
-    axes[1].set_xlabel("Within +/-0.4")
+    axes[1].set_xlabel("Within ±0.4")
     axes[1].set_ylabel("MAE")
     fig.tight_layout(w_pad=1.4)
     save_pub(fig, output_dir / "FigS4_Gate_Sensitivity", gate)
@@ -174,7 +185,7 @@ def plot_s8_gnn(gnn: pd.DataFrame, output_dir: Path) -> None:
 
 def plot_s9_interval_comparators(summary: pd.DataFrame, output_dir: Path) -> None:
     set_publication_style()
-    labels = [f"{row.method}\n{int(100 * row.nominal_coverage)}%" for row in summary.itertuples()]
+    labels = [f"{_label_methods([row.method])[0]}\n{int(100 * row.nominal_coverage)}%" for row in summary.itertuples()]
     x = np.arange(len(labels))
     method_colors = {"KOTMA-SR": COLORS["red"], "Top-1 CBR": COLORS["blue"], "Ridge": COLORS["neutral_mid"]}
     colors = [method_colors[method] for method in summary["method"]]
