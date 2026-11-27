@@ -1,0 +1,14 @@
+{
+  "side": "S15",
+  "layout_key": "S15_clear",
+  "revision": "REPLACE_WITH_CONFIRMED_REVISION",
+  "csv": "preprint_export.csv",
+  "source_sha256": "REPLACE_WITH_SHA256_OF_CANONICAL_CSV",
+  "board_dimensions": [159.0, 143.0, 1.6],
+  "length_unit": "REPLACE_WITH_CONFIRMED_COMMON_UNIT",
+  "angle_convention": "REPLACE_WITH_CONFIRMED_DEGREE_AND_AXIS_CONVENTION",
+  "pad_id_mapping_ref": "REPLACE_WITH_APPROVED_PAD_CROSSWALK",
+  "coordinate_mapping_ref": "REPLACE_WITH_COORDINATE_CONVERSION_RECORD",
+  "evidence_ref": "REPLACE_WITH_ENGINEERING_DOCUMENT_REFERENCE",
+  "documented_preprint_order_ref": "REPLACE_WITH_TRACEABLE_PREPRINT_PRECEDENCE_DOCUMENT"
+}

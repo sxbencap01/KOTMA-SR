@@ -1,2 +1,0 @@
-top_k_candidates,descriptor_weight_candidates,min_supported_pressure_cases_candidates,max_tail_adjustment_raw_candidates,selection_rule
-5;8,0.5;0.75,3,0.2;0.4;0.5,"minimum inner grouped-validation MAE; ties prefer smaller cap, lower support threshold, smaller top_k, lower descriptor weight"

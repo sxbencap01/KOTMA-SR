@@ -1,6 +1,0 @@
-experiment,detail,n_sides,n_physical_boards
-Baselines,"CBR, median, unconstrained OT",34,21
-Ablations,"FGW, safeguard, bounded update",34,21
-Small-sample,"5, 10, 20, all histories",34,21
-Controls,"random memory, pad-count only",34,21
-Trust,"intervals, OOD, review, latency",34,21

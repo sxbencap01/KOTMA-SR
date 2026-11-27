@@ -1,0 +1,24 @@
+{
+  "database": "data/synthetic_demo_8boards/synthetic_demo.db",
+  "stencil_thickness_assumed": 0.12,
+  "stencil_thickness_unit": "mm (0.12 mm sensitivity comparison run)",
+  "pressure_unit": "kgf",
+  "pressure_step_kgf": 0.1,
+  "pressure_range_kgf": [
+    5.0,
+    8.0
+  ],
+  "length_unit": "mm",
+  "height_meaning": "PCB board thickness (mm)",
+  "speed_unit": "cm/s",
+  "geometry_scope": "historical observed layouts (no independent pre-print CAD export available)",
+  "s37_official_layout": "2990 pads (official production revision; 886 pads is a separate revision)",
+  "masked_pad_sides": [
+    "S14",
+    "S21",
+    "S28",
+    "S33"
+  ],
+  "gate": "rare-setting frequency gate",
+  "engineering_evidence": "process engineer trial printing per first-article inspection procedure -> SPI meeting enterprise yield/volume criteria -> QA/process sign-off into recipe library"
+}

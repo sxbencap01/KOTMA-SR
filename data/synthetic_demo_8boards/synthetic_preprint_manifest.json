@@ -1,0 +1,19 @@
+{
+  "side": "S01",
+  "layout_key": "S01_clear",
+  "revision": "SYN-REV-A",
+  "csv": "synthetic_preprint_S01.csv",
+  "board_dimensions": [
+    220.0,
+    160.0,
+    1.6
+  ],
+  "preprint_available_at": "2026-01-01T08:00:00Z",
+  "first_print_at": "2026-01-02T09:00:00Z",
+  "evidence_ref": "SYNTHETIC-DEMO-PREPRINT-AUDIT",
+  "coordinate_mapping_ref": "SYNTHETIC-CANONICAL-FRAME",
+  "length_unit": "mm",
+  "angle_convention": "degrees_ccw_0_360",
+  "pad_id_mapping_ref": "SYNTHETIC-DIRECT-PADID",
+  "source_sha256": "b5f9c3347fb44305a63ba6e9521a36316db600a8b9bfbe233a6bee65946b6a67"
+}

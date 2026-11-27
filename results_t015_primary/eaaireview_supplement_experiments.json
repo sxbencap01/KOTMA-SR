@@ -1,0 +1,170 @@
+{
+  "loo_mean": [
+    {
+      "cohort": "primary",
+      "sides": 34,
+      "boards": 21,
+      "loo_mean_mae": 0.3294,
+      "board_macro_mae": 0.3286,
+      "hit02": 13,
+      "hit04": 25
+    },
+    {
+      "cohort": "qualified",
+      "sides": 23,
+      "boards": 15,
+      "loo_mean_mae": 0.4217,
+      "board_macro_mae": 0.3867,
+      "hit02": 6,
+      "hit04": 15
+    },
+    {
+      "cohort": "small_layout",
+      "sides": 34,
+      "boards": 21,
+      "loo_mean_mae": 0.3294,
+      "board_macro_mae": 0.3286,
+      "hit02": 13,
+      "hit04": 25
+    },
+    {
+      "cohort": "unambiguous",
+      "sides": 33,
+      "boards": 20,
+      "loo_mean_mae": 0.3364,
+      "board_macro_mae": 0.34,
+      "hit02": 12,
+      "hit04": 24
+    },
+    {
+      "cohort": "speed08",
+      "sides": 32,
+      "boards": 20,
+      "loo_mean_mae": 0.3438,
+      "board_macro_mae": 0.34,
+      "hit02": 11,
+      "hit04": 23
+    }
+  ],
+  "gated_ml_controls": [
+    {
+      "cohort": "primary",
+      "method": "Gated CatBoost",
+      "mae": 0.3265,
+      "diffs_vs_full": 0
+    },
+    {
+      "cohort": "primary",
+      "method": "Gated Ridge",
+      "mae": 0.3294,
+      "diffs_vs_full": 2
+    },
+    {
+      "cohort": "primary",
+      "method": "Gated Weighted kNN",
+      "mae": 0.3324,
+      "diffs_vs_full": 1
+    },
+    {
+      "cohort": "qualified",
+      "method": "Gated CatBoost",
+      "mae": 0.4261,
+      "diffs_vs_full": 3
+    },
+    {
+      "cohort": "qualified",
+      "method": "Gated Ridge",
+      "mae": 0.4261,
+      "diffs_vs_full": 2
+    },
+    {
+      "cohort": "qualified",
+      "method": "Gated Weighted kNN",
+      "mae": 0.4348,
+      "diffs_vs_full": 1
+    }
+  ],
+  "gate_threshold_sensitivity": [
+    {
+      "cohort": "primary",
+      "threshold": "<2",
+      "open_sides": 3,
+      "total_sides": 34,
+      "mae": 0.3471
+    },
+    {
+      "cohort": "primary",
+      "threshold": "<3",
+      "open_sides": 4,
+      "total_sides": 34,
+      "mae": 0.3265
+    },
+    {
+      "cohort": "primary",
+      "threshold": "<4",
+      "open_sides": 4,
+      "total_sides": 34,
+      "mae": 0.3265
+    },
+    {
+      "cohort": "primary",
+      "threshold": "<5",
+      "open_sides": 4,
+      "total_sides": 34,
+      "mae": 0.3265
+    },
+    {
+      "cohort": "primary",
+      "threshold": "<6",
+      "open_sides": 9,
+      "total_sides": 34,
+      "mae": 0.2765
+    },
+    {
+      "cohort": "qualified",
+      "threshold": "<2",
+      "open_sides": 3,
+      "total_sides": 23,
+      "mae": 0.4696
+    },
+    {
+      "cohort": "qualified",
+      "threshold": "<3",
+      "open_sides": 5,
+      "total_sides": 23,
+      "mae": 0.4261
+    },
+    {
+      "cohort": "qualified",
+      "threshold": "<4",
+      "open_sides": 5,
+      "total_sides": 23,
+      "mae": 0.4261
+    },
+    {
+      "cohort": "qualified",
+      "threshold": "<5",
+      "open_sides": 9,
+      "total_sides": 23,
+      "mae": 0.3565
+    },
+    {
+      "cohort": "qualified",
+      "threshold": "<6",
+      "open_sides": 10,
+      "total_sides": 23,
+      "mae": 0.3652
+    }
+  ],
+  "shuffle_permutation": {
+    "seeds": 20,
+    "beat": 0,
+    "tie": 1,
+    "le_full": 1,
+    "perm_p": 0.0952
+  },
+  "equal_weight_standardized_fgw": {
+    "primary_mae": 0.3324,
+    "default_mae": 0.3265
+  }
+}

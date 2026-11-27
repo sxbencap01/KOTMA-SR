@@ -1,3 +1,0 @@
-raw_label,parsed_as_good,parsed_as_ng,parsed_as_unknown,known_good_pattern,count
-缺陷,False,True,False,False,15451
-良品,True,False,False,True,1719298

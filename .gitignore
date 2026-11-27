@@ -1,11 +1,8 @@
 __pycache__/
 *.py[cod]
-*.db
-*.sqlite
-*.sqlite3
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.DS_Store
-Thumbs.db
-
+smoke_out/
+results/
+test.db
+*.db-journal
+private_*
+local_real_sample*
